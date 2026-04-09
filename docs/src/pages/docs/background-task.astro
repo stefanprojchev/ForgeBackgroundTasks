@@ -1,0 +1,115 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import CodeBlock from "../../components/CodeBlock.astro";
+import PageNavigation from "../../components/PageNavigation.astro";
+
+const protocolDef = `public protocol BackgroundTask: Sendable {
+    /// Unique identifier matching BGTaskSchedulerPermittedIdentifiers in Info.plist.
+    var identifier: String { get }
+
+    /// Whether this task needs network connectivity to do useful work.
+    var requiresNetwork: Bool { get }
+
+    /// Whether this task accesses protected data (Keychain, CoreData, encrypted files).
+    /// If true and the device is locked, the task is skipped.
+    var requiresProtectedData: Bool { get }
+
+    /// Scheduling configuration. Determines task type and interval.
+    var schedule: BackgroundTaskSchedule { get }
+
+    /// Performs the background work. Check context.isCancelled() periodically.
+    func execute(context: BackgroundTaskContext) async
+}`;
+
+const exampleImpl = `import ForgeBackgroundTasks
+
+struct DataSyncTask: BackgroundTask {
+    let identifier = "com.taskflow.data-sync"
+    let requiresNetwork = true
+    let requiresProtectedData = true
+    let schedule = BackgroundTaskSchedule.refresh(interval: 3600)
+
+    private let syncService: SyncServiceProtocol
+
+    init(syncService: SyncServiceProtocol) {
+        self.syncService = syncService
+    }
+
+    func execute(context: BackgroundTaskContext) async {
+        guard context.connectivity.isConnected else { return }
+
+        for batch in await syncService.pendingBatches() {
+            if context.isCancelled() { break }
+            await syncService.upload(batch)
+        }
+    }
+}`;
+
+const cancellationPattern = `func execute(context: BackgroundTaskContext) async {
+    let items = await fetchItems()
+
+    for item in items {
+        // Check cancellation before each unit of work
+        if context.isCancelled() { return }
+        await processItem(item)
+    }
+}`;
+---
+
+<DocsLayout title="BackgroundTask Protocol" section="docs">
+  <h1>BackgroundTask Protocol</h1>
+  <p class="text-lg text-muted-foreground mt-1 mb-8">The protocol every background task conforms to. Declare what you need and implement <code>execute(context:)</code>.</p>
+
+  <h2>Protocol</h2>
+  <CodeBlock code={protocolDef} title="BackgroundTask.swift" />
+
+  <h2>Properties</h2>
+
+  <div class="not-prose my-6 overflow-x-auto">
+    <table class="w-full text-[13px]">
+      <thead>
+        <tr class="border-b border-border/60">
+          <th class="py-2 pr-4 text-left font-medium text-muted-foreground">Property</th>
+          <th class="py-2 pr-4 text-left font-medium text-muted-foreground">Type</th>
+          <th class="py-2 text-left font-medium text-muted-foreground">Description</th>
+        </tr>
+      </thead>
+      <tbody class="text-foreground">
+        <tr class="border-b border-border/30">
+          <td class="py-2 pr-4 font-mono text-amber-400">identifier</td>
+          <td class="py-2 pr-4 font-mono">String</td>
+          <td class="py-2">Must match an entry in <code class="rounded bg-muted px-1 py-0.5 text-[12px]">BGTaskSchedulerPermittedIdentifiers</code>.</td>
+        </tr>
+        <tr class="border-b border-border/30">
+          <td class="py-2 pr-4 font-mono text-amber-400">requiresNetwork</td>
+          <td class="py-2 pr-4 font-mono">Bool</td>
+          <td class="py-2">When <code class="rounded bg-muted px-1 py-0.5 text-[12px]">true</code>, connectivity status is passed in context. The task decides whether to proceed.</td>
+        </tr>
+        <tr class="border-b border-border/30">
+          <td class="py-2 pr-4 font-mono text-amber-400">requiresProtectedData</td>
+          <td class="py-2 pr-4 font-mono">Bool</td>
+          <td class="py-2">When <code class="rounded bg-muted px-1 py-0.5 text-[12px]">true</code> and device is locked, the task is skipped and rescheduled automatically.</td>
+        </tr>
+        <tr>
+          <td class="py-2 pr-4 font-mono text-amber-400">schedule</td>
+          <td class="py-2 pr-4 font-mono">BackgroundTaskSchedule</td>
+          <td class="py-2">Determines whether to use <code class="rounded bg-muted px-1 py-0.5 text-[12px]">BGAppRefreshTaskRequest</code> or <code class="rounded bg-muted px-1 py-0.5 text-[12px]">BGProcessingTaskRequest</code>, and the minimum interval.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Example Implementation</h2>
+  <CodeBlock code={exampleImpl} title="DataSyncTask.swift" />
+
+  <h2>Cancellation Pattern</h2>
+  <p>The system can revoke background time at any moment. Check <code>context.isCancelled()</code> between units of work — not just at the start — so long-running loops exit promptly.</p>
+  <CodeBlock code={cancellationPattern} title="Cancellation check" />
+
+  <PageNavigation
+    prevHref="docs/getting-started"
+    prevLabel="Getting Started"
+    nextHref="docs/schedule"
+    nextLabel="BackgroundTaskSchedule"
+  />
+</DocsLayout>

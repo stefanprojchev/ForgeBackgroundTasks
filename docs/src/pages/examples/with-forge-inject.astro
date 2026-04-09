@@ -1,0 +1,98 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import CodeBlock from "../../components/CodeBlock.astro";
+import PageNavigation from "../../components/PageNavigation.astro";
+
+const moduleCode = `import ForgeInject
+import ForgeBackgroundTasks
+import ForgeObservers
+
+struct BackgroundTaskModule: ForgeRegisterProtocol {
+    func registerDependencies(in container: ForgeContainerProtocol) {
+        // Register observers used by the registry
+        container.register(with: .singleton) { _ in
+            ConnectivityObserver() as ConnectivityObserving
+        }
+
+        // ProtectedDataObserver has @MainActor init — use mainActorBuilder
+        container.register(with: .singleton, mainActorBuilder: { _ in
+            ProtectedDataObserver() as ProtectedDataObserving
+        })
+
+        // Register the registry itself
+        container.register(with: .singleton) { c in
+            BackgroundTaskRegistry(
+                connectivity: c.resolve(ConnectivityObserving.self),
+                protectedData: c.resolve(ProtectedDataObserving.self)
+            )
+        }
+
+        // Register individual tasks
+        container.register { _ in SyncTask() as any BackgroundTask }
+        container.register { _ in CleanupTask() as any BackgroundTask }
+    }
+}`;
+
+const appEntryCode = `import SwiftUI
+import ForgeInject
+import ForgeBackgroundTasks
+
+@main
+struct TaskFlowApp: App {
+    init() {
+        let container = ForgeContainer()
+        BackgroundTaskModule().registerDependencies(in: container)
+        ForgeContainer.shared = container
+
+        // Register and schedule via the shared registry
+        let registry: BackgroundTaskRegistry = container.resolve()
+        registry.register([
+            container.resolve(SyncTask.self) as any BackgroundTask,
+            container.resolve(CleanupTask.self) as any BackgroundTask,
+        ])
+        registry.registerWithSystem()
+    }
+
+    var body: some Scene {
+        WindowGroup { ContentView() }
+    }
+}`;
+
+const viewModelCode = `import ForgeInject
+import ForgeBackgroundTasks
+
+@Observable
+final class SettingsViewModel {
+    @ForgeInject var registry: BackgroundTaskRegistry
+
+    func pauseSync() {
+        registry.cancel("com.taskflow.sync")
+    }
+
+    func resumeSync() {
+        try? registry.schedule("com.taskflow.sync")
+    }
+}`;
+---
+
+<DocsLayout title="With ForgeInject" section="examples">
+  <h1>With ForgeInject</h1>
+  <p class="text-lg text-muted-foreground mt-1 mb-8">Registering the registry and tasks in a DI container using <a href="https://github.com/stefanprojchev/ForgeInject">ForgeInject</a>.</p>
+
+  <h2>BackgroundTaskModule</h2>
+  <p>Create a <code>ForgeRegisterProtocol</code> struct that registers the observers, the registry, and each task as singletons. Note that <code>ProtectedDataObserver</code> has a <code>@MainActor init</code> — use ForgeInject's <code>mainActorBuilder</code> variant.</p>
+  <CodeBlock code={moduleCode} title="BackgroundTaskModule.swift" />
+
+  <h2>App Entry Point</h2>
+  <p>At app launch, resolve the registry from the container and call <code>registerWithSystem()</code>. All tasks are resolved and registered in one pass.</p>
+  <CodeBlock code={appEntryCode} title="TaskFlowApp.swift" />
+
+  <h2>Resolving the Registry in a ViewModel</h2>
+  <p>Use <code>@ForgeInject</code> to resolve the registry anywhere in the app without passing it through the initializer chain. Useful for cancelling or rescheduling individual tasks from settings or feature controllers.</p>
+  <CodeBlock code={viewModelCode} title="SettingsViewModel.swift" />
+
+  <PageNavigation
+    prevHref="examples/basic-setup"
+    prevLabel="Basic Setup"
+  />
+</DocsLayout>

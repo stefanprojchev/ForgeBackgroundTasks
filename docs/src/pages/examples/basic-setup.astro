@@ -1,0 +1,96 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import CodeBlock from "../../components/CodeBlock.astro";
+import PageNavigation from "../../components/PageNavigation.astro";
+
+const taskImpl = `import ForgeBackgroundTasks
+
+struct SyncTask: BackgroundTask {
+    let identifier = "com.taskflow.sync"
+    let requiresNetwork = true
+    let requiresProtectedData = false
+    let schedule = BackgroundTaskSchedule.refresh(interval: 3600)
+
+    func execute(context: BackgroundTaskContext) async {
+        guard context.connectivity.isConnected else { return }
+
+        let items = await SyncStore.shared.pendingItems()
+        for item in items {
+            if context.isCancelled() { return }
+            await SyncStore.shared.upload(item)
+        }
+    }
+}`;
+
+const processingTaskImpl = `struct CleanupTask: BackgroundTask {
+    let identifier = "com.taskflow.cleanup"
+    let requiresNetwork = false
+    let requiresProtectedData = false
+    let schedule = BackgroundTaskSchedule.processing(
+        requiresCharging: true,
+        interval: 86400
+    )
+
+    func execute(context: BackgroundTaskContext) async {
+        await CacheStore.shared.evictExpiredEntries()
+    }
+}`;
+
+const appDelegateCode = `import UIKit
+import ForgeBackgroundTasks
+import ForgeObservers
+
+@main
+class AppDelegate: UIResponder, UIApplicationDelegate {
+
+    let registry = BackgroundTaskRegistry(
+        connectivity: ConnectivityObserver(),
+        protectedData: ProtectedDataObserver()
+    )
+
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
+    ) -> Bool {
+        registry.register([
+            SyncTask(),
+            CleanupTask(),
+        ])
+        registry.registerWithSystem()
+        return true
+    }
+}`;
+
+const schedulingCode = `// SceneDelegate.swift
+func sceneDidEnterBackground(_ scene: UIScene) {
+    (UIApplication.shared.delegate as? AppDelegate)?.registry.scheduleAll()
+}`;
+---
+
+<DocsLayout title="Basic Setup" section="examples">
+  <h1>Basic Setup</h1>
+  <p class="text-lg text-muted-foreground mt-1 mb-8">Full AppDelegate setup with registry, task registration, system registration, and background scheduling.</p>
+
+  <h2>App Refresh Task</h2>
+  <p>A short-lived task that uploads pending sync items. It checks connectivity from context and exits early if offline. Cancellation is checked between items so the loop exits promptly if the system expires the task.</p>
+  <CodeBlock code={taskImpl} title="SyncTask.swift" />
+
+  <h2>Processing Task</h2>
+  <p>A longer-running cleanup task that only runs while charging. No network needed — it evicts expired cache entries from disk.</p>
+  <CodeBlock code={processingTaskImpl} title="CleanupTask.swift" />
+
+  <h2>AppDelegate</h2>
+  <p>Create the registry once, register all tasks, then call <code>registerWithSystem()</code> before the app finishes launching. Both the connectivity and protected data observers are injected into the registry for pre-flight checks.</p>
+  <CodeBlock code={appDelegateCode} title="AppDelegate.swift" />
+
+  <h2>Scheduling</h2>
+  <p>Call <code>scheduleAll()</code> whenever the app enters the background. This tells the system to wake the app again according to each task's schedule.</p>
+  <CodeBlock code={schedulingCode} title="SceneDelegate.swift" />
+
+  <PageNavigation
+    prevHref="docs/context"
+    prevLabel="BackgroundTaskContext"
+    nextHref="examples/with-forge-inject"
+    nextLabel="With ForgeInject"
+  />
+</DocsLayout>

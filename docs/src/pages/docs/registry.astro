@@ -1,0 +1,199 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import CodeBlock from "../../components/CodeBlock.astro";
+import PageNavigation from "../../components/PageNavigation.astro";
+
+const initExample = `import ForgeBackgroundTasks
+import ForgeObservers
+
+let registry = BackgroundTaskRegistry(
+    connectivity: ConnectivityObserver(),
+    protectedData: ProtectedDataObserver()
+)`;
+
+const registerSingle = `// Register a single task
+registry.register(SyncTask())`;
+
+const registerArray = `// Register multiple tasks at once
+registry.register([
+    SyncTask(),
+    CleanupTask(),
+    AnalyticsUploadTask(),
+])`;
+
+const registerWithSystem = `// Must be called during app launch, before the app finishes launching.
+// Registers all tasks with BGTaskScheduler so the system knows your handlers.
+registry.registerWithSystem()`;
+
+const scheduleSingle = `// Schedule a specific task — throws if BGTaskScheduler.submit fails
+do {
+    try registry.schedule("com.taskflow.sync")
+} catch {
+    print("Failed to schedule: \\(error.localizedDescription)")
+}
+
+// Override the earliest begin date
+try registry.schedule("com.taskflow.sync", earliestBeginDate: Date(timeIntervalSinceNow: 300))`;
+
+const scheduleAllExample = `// Schedule all registered tasks. Non-throwing — continues if one fails,
+// logging the error for each individual failure.
+registry.scheduleAll()`;
+
+const cancelExample = `// Cancel a specific scheduled task
+registry.cancel("com.taskflow.sync")
+
+// Cancel all scheduled tasks
+registry.cancelAll()`;
+
+const errorHandlingExample = `// schedule() throws BGTaskScheduler errors. Common causes:
+// - Task identifier not in BGTaskSchedulerPermittedIdentifiers
+// - Calling schedule from an extension or unsupported context
+// - Too many pending task requests
+
+func sceneDidEnterBackground(_ scene: UIScene) {
+    let registry = (UIApplication.shared.delegate as? AppDelegate)?.registry
+
+    do {
+        try registry?.schedule("com.taskflow.sync")
+    } catch {
+        // BGTaskScheduler.Error provides specific failure reasons
+        print("Scheduling failed: \\(error.localizedDescription)")
+    }
+}`;
+
+const fullLifecycle = `import UIKit
+import ForgeBackgroundTasks
+import ForgeObservers
+
+@main
+class AppDelegate: UIResponder, UIApplicationDelegate {
+
+    let registry = BackgroundTaskRegistry(
+        connectivity: ConnectivityObserver(),
+        protectedData: ProtectedDataObserver()
+    )
+
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
+    ) -> Bool {
+        // 1. Register tasks with the registry
+        registry.register([
+            SyncTask(),
+            CleanupTask(),
+        ])
+
+        // 2. Register handlers with the system
+        registry.registerWithSystem()
+
+        return true
+    }
+}
+
+// SceneDelegate.swift
+class SceneDelegate: UIResponder, UIWindowSceneDelegate {
+    func sceneDidEnterBackground(_ scene: UIScene) {
+        // 3. Schedule on background entry
+        (UIApplication.shared.delegate as? AppDelegate)?.registry.scheduleAll()
+    }
+}`;
+---
+
+<DocsLayout title="BackgroundTaskRegistry" section="docs">
+  <h1>BackgroundTaskRegistry</h1>
+  <p class="text-lg text-muted-foreground mt-1 mb-8">The central coordinator that manages registration, scheduling, and dispatch of background tasks.</p>
+
+  <h2>Initialization</h2>
+  <p><code>BackgroundTaskRegistry</code> requires a <code>ConnectivityObserving</code> and <code>ProtectedDataObserving</code> instance for pre-flight checks before task execution. Both come from <a href="https://github.com/stefanprojchev/ForgeObservers">ForgeObservers</a>.</p>
+  <CodeBlock code={initExample} title="Creating the registry" />
+
+  <h2>register(_:)</h2>
+  <p>Registers a single <code>BackgroundTask</code> with the registry. Call before <code>registerWithSystem()</code>. Duplicate identifiers are ignored with a warning.</p>
+  <CodeBlock code={registerSingle} />
+
+  <h2>register(_:) — Array</h2>
+  <p>Registers multiple tasks at once. Convenience for registering a batch of tasks in a single call.</p>
+  <CodeBlock code={registerArray} />
+
+  <h2>registerWithSystem()</h2>
+  <p>Registers all tasks with <code>BGTaskScheduler</code>. This must be called during <code>application(_:didFinishLaunchingWithOptions:)</code> — before the app finishes launching. Each task's handler is registered with the system so it can be woken up later.</p>
+  <CodeBlock code={registerWithSystem} />
+
+  <h2>schedule(_:earliestBeginDate:)</h2>
+  <p>Schedules a specific task for future execution. This calls <code>BGTaskScheduler.shared.submit()</code> and <strong>throws</strong> if the submission fails. Pass an optional <code>earliestBeginDate</code> to override the task's default interval.</p>
+  <CodeBlock code={scheduleSingle} />
+
+  <h2>scheduleAll()</h2>
+  <p>Schedules all registered tasks. This is <strong>non-throwing</strong> — if one task fails to schedule, the error is logged and the remaining tasks are still scheduled. Call this from <code>sceneDidEnterBackground</code>.</p>
+  <CodeBlock code={scheduleAllExample} />
+
+  <h2>cancel(_:) / cancelAll()</h2>
+  <p>Cancel a specific scheduled task by identifier, or cancel all scheduled tasks.</p>
+  <CodeBlock code={cancelExample} />
+
+  <h2>Error Handling</h2>
+  <p><code>schedule(_:earliestBeginDate:)</code> throws <code>BGTaskScheduler</code> errors. Common failure reasons include: the task identifier is not listed in <code>BGTaskSchedulerPermittedIdentifiers</code>, calling schedule from an unsupported context (e.g., an app extension), or exceeding the pending task request limit.</p>
+  <CodeBlock code={errorHandlingExample} />
+
+  <h2>API Reference</h2>
+
+  <div class="not-prose my-6 overflow-x-auto">
+    <table class="w-full text-[13px]">
+      <thead>
+        <tr class="border-b border-border/60">
+          <th class="py-2 pr-4 text-left font-medium text-muted-foreground">Method</th>
+          <th class="py-2 pr-4 text-left font-medium text-muted-foreground">Throws</th>
+          <th class="py-2 text-left font-medium text-muted-foreground">Description</th>
+        </tr>
+      </thead>
+      <tbody class="text-foreground">
+        <tr class="border-b border-border/30">
+          <td class="py-2 pr-4 font-mono text-amber-400">register(_:)</td>
+          <td class="py-2 pr-4">No</td>
+          <td class="py-2">Register a single <code class="rounded bg-muted px-1 py-0.5 text-[12px]">BackgroundTask</code>.</td>
+        </tr>
+        <tr class="border-b border-border/30">
+          <td class="py-2 pr-4 font-mono text-amber-400">register(_:) — Array</td>
+          <td class="py-2 pr-4">No</td>
+          <td class="py-2">Register multiple tasks at once.</td>
+        </tr>
+        <tr class="border-b border-border/30">
+          <td class="py-2 pr-4 font-mono text-amber-400">registerWithSystem()</td>
+          <td class="py-2 pr-4">No</td>
+          <td class="py-2">Register all tasks with <code class="rounded bg-muted px-1 py-0.5 text-[12px]">BGTaskScheduler</code>. Call at launch.</td>
+        </tr>
+        <tr class="border-b border-border/30">
+          <td class="py-2 pr-4 font-mono text-amber-400">schedule(_:earliestBeginDate:)</td>
+          <td class="py-2 pr-4">Yes</td>
+          <td class="py-2">Schedule a task. Throws on <code class="rounded bg-muted px-1 py-0.5 text-[12px]">BGTaskScheduler.submit()</code> failure.</td>
+        </tr>
+        <tr class="border-b border-border/30">
+          <td class="py-2 pr-4 font-mono text-amber-400">scheduleAll()</td>
+          <td class="py-2 pr-4">No</td>
+          <td class="py-2">Schedule all tasks. Continues on error, logs failures.</td>
+        </tr>
+        <tr class="border-b border-border/30">
+          <td class="py-2 pr-4 font-mono text-amber-400">cancel(_:)</td>
+          <td class="py-2 pr-4">No</td>
+          <td class="py-2">Cancel a specific scheduled task.</td>
+        </tr>
+        <tr>
+          <td class="py-2 pr-4 font-mono text-amber-400">cancelAll()</td>
+          <td class="py-2 pr-4">No</td>
+          <td class="py-2">Cancel all scheduled tasks.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Full Lifecycle</h2>
+  <p>The complete setup pattern: create the registry, register tasks, register with the system at launch, and schedule on background entry.</p>
+  <CodeBlock code={fullLifecycle} title="AppDelegate.swift + SceneDelegate.swift" />
+
+  <PageNavigation
+    prevHref="docs/context"
+    prevLabel="BackgroundTaskContext"
+    nextHref="examples/basic-setup"
+    nextLabel="Basic Setup"
+  />
+</DocsLayout>
