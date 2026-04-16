@@ -7,8 +7,6 @@ Background task scheduling and dispatch for iOS.
 ![License](https://img.shields.io/badge/license-MIT-lightgrey.svg)
 [![Release](https://img.shields.io/github/v/release/stefanprojchev/ForgeBackgroundTasks)](https://github.com/stefanprojchev/ForgeBackgroundTasks/releases)
 
-📖 **[Full documentation →](https://stefanprojchev.github.io/ForgeBackgroundTasks/)**
-
 ---
 
 ForgeBackgroundTasks wraps `BGTaskScheduler` in a registry-based API. Define your tasks, register them once at launch, and ForgeBackgroundTasks handles system registration, scheduling, the expiration/completion race, and automatic rescheduling.
@@ -138,11 +136,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     interval: 7200
 )
 ```
-
-## Documentation
-
-- **[Getting Started](https://stefanprojchev.github.io/ForgeBackgroundTasks/docs/getting-started/)**
-- **[Registry](https://stefanprojchev.github.io/ForgeBackgroundTasks/docs/registry/)** · **[Background Task](https://stefanprojchev.github.io/ForgeBackgroundTasks/docs/background-task/)** · **[Schedule](https://stefanprojchev.github.io/ForgeBackgroundTasks/docs/schedule/)** · **[Context](https://stefanprojchev.github.io/ForgeBackgroundTasks/docs/context/)**
 
 ## The Forge Family
 
