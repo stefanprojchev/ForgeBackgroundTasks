@@ -11,8 +11,8 @@ let package = Package(
         .library(name: "ForgeBackgroundTasks", targets: ["ForgeBackgroundTasks"]),
     ],
     dependencies: [
-        .package(path: "../ForgeCore"),
-        .package(path: "../ForgeObservers"),
+        .package(url: "https://github.com/stefanprojchev/ForgeCore.git", from: "1.0.0"),
+        .package(url: "https://github.com/stefanprojchev/ForgeObservers.git", from: "1.0.0"),
     ],
     targets: [
         .target(
