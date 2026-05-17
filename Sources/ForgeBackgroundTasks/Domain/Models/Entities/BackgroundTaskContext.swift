@@ -7,8 +7,6 @@ import Foundation
 /// Check `isCancelled()` periodically — the system can revoke background time at any moment.
 public struct BackgroundTaskContext: Sendable {
 
-    // MARK: - Properties
-
     /// Returns `true` when the system has asked the task to stop.
     public let isCancelled: @Sendable () -> Bool
 
@@ -17,8 +15,6 @@ public struct BackgroundTaskContext: Sendable {
 
     /// Whether protected data (Keychain, CoreData) is accessible.
     public let protectedDataAvailable: Bool
-
-    // MARK: - Initialization
 
     /// - Parameters:
     ///   - isCancelled: Closure that returns `true` when the system revokes background time.

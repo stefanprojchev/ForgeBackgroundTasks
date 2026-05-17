@@ -12,14 +12,14 @@ import UIKit
 /// Thread-safe via `LockedState`. Task `execute()` runs on a background `Task`.
 public final class BackgroundTaskRegistry: Sendable {
 
-    // MARK: - Properties
+    // MARK: - Dependencies
 
     private let logger = Logger(subsystem: "core.background", category: "registry")
     private let tasks = LockedState<[String: any BackgroundTask]>([:])
     private let connectivity: ConnectivityObserving
     private let protectedData: ProtectedDataObserving
 
-    // MARK: - Initialization
+    // MARK: - Init
 
     /// - Parameters:
     ///   - connectivity: Observer for network status pre-checks.
@@ -109,8 +109,6 @@ public final class BackgroundTaskRegistry: Sendable {
         BGTaskScheduler.shared.cancelAllTaskRequests()
         logger.info("Cancelled all tasks")
     }
-
-    // MARK: - Internal (Test Helpers)
 
     /// Identifiers of all currently-registered tasks. Used by tests to verify registration state.
     internal var registeredIdentifiers: [String] {
